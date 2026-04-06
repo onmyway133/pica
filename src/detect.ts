@@ -61,6 +61,19 @@ function detectSkills(dir: string): DetectedItem[] {
       }
     }
   }
+
+  // Fallback: scan root-level directories for a SKILL.md inside them
+  if (results.length === 0) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+      const skillMd = join(dir, entry.name, 'SKILL.md')
+      if (existsSync(skillMd)) {
+        const { name, description } = readMd(skillMd)
+        results.push({ type: 'skill', name, path: skillMd, description })
+      }
+    }
+  }
+
   return results
 }
 
