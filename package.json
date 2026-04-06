@@ -1,6 +1,6 @@
 {
   "name": "@onmyway133/pica",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CLI to detect and install agents, skills, commands, and rules from any repo",
   "type": "module",
   "bin": {
