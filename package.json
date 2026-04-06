@@ -1,0 +1,21 @@
+{
+  "name": "@onmyway133/pica",
+  "version": "0.1.0",
+  "description": "CLI to detect and install agents, skills, commands, and rules from any repo",
+  "type": "module",
+  "bin": {
+    "pica": "./bin/pica.mjs"
+  },
+  "scripts": {
+    "dev": "bun src/cli.ts",
+    "build": "bun build src/cli.ts --outfile dist/cli.mjs --target node"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}
