@@ -29,6 +29,8 @@ pica ./my-claude-setup
 pica uninstall onmyway133/cmon
 ```
 
+![](images/prompt.png)
+
 pica clones the repo, scans it, and walks you through an interactive prompt to pick what to install or remove, the scope (local vs global), and the mode (symlink vs copy).
 
 ## Install
