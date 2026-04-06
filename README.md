@@ -9,23 +9,50 @@ CLI to detect and install Claude Code agents, skills, commands, hooks, and rules
 Named after *Pica pica* — the magpie, known for collecting shiny things.
 
 ```
-npx @onmyway133/pica <repo-url | owner/repo | local-path>
+npx @onmyway133/pica <repo>
+npx @onmyway133/pica uninstall <repo>
 ```
 
 ## Usage
 
 ```sh
-# GitHub shorthand
+# Install — GitHub shorthand
 pica onmyway133/cmon
 
-# Full URL
+# Install — full URL
 pica https://github.com/onmyway133/cmon
 
-# Local path
+# Install — local path
 pica ./my-claude-setup
+
+# Uninstall
+pica uninstall onmyway133/cmon
+pica remove onmyway133/cmon
 ```
 
-pica clones the repo, scans it, and walks you through an interactive prompt to pick what to install, the scope (local vs global), and the mode (symlink vs copy).
+pica clones the repo, scans it, and walks you through an interactive prompt to pick what to install or remove, the scope (local vs global), and the mode (symlink vs copy).
+
+## Install
+
+Prompts for:
+1. Which types to install (Agents, Skills, Commands, Hooks, Rules)
+2. Which individual items within those types
+3. Scope — local (`.claude/`) or global (`~/.claude/`)
+4. Mode — symlink or copy
+
+## Uninstall
+
+```sh
+pica uninstall <repo>
+```
+
+pica fetches the same repo, detects what it contains, and shows only the items that are actually installed on your machine. Select what to remove and confirm.
+
+For **hooks**, uninstall surgically removes only the matching entries from `settings.json`, leaving any other hooks you have configured untouched. Script files in `.claude/hooks/` are deleted.
+
+Scope options at uninstall time:
+- **Local + Global** — removes from both `.claude/` and `~/.claude/` (use this if you installed with symlink mode)
+- **Global only** — removes only from `~/.claude/`
 
 ## What gets detected
 
