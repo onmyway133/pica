@@ -230,7 +230,7 @@ async function main() {
   const url = first === 'uninstall' || first === 'remove' || first === 'install' ? second : first
   p.intro(pc.bold(` ${url ? repoLabel(url) : '@onmyway133/pica'} `))
 
-  if (first === 'uninstall' || first === 'remove') {
+  if (first === 'uninstall') {
     if (!second) printUsage()
     await runUninstall(second)
   } else if (first === 'install') {
