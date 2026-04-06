@@ -214,12 +214,21 @@ async function runUninstall(url: string) {
 
 // ── Entry ──────────────────────────────────────────────────────────────────────
 
+function repoLabel(input: string): string {
+  // Strip trailing .git
+  const s = input.replace(/\.git$/, '')
+  // Extract last two path segments for GitHub-style "owner/repo"
+  const match = s.match(/([^/]+\/[^/]+)$/)
+  return match ? match[1] : s
+}
+
 async function main() {
   const [, , first, second] = process.argv
 
-  p.intro(pc.bold(' @onmyway133/pica '))
-
   if (!first) printUsage()
+
+  const url = first === 'uninstall' || first === 'remove' || first === 'install' ? second : first
+  p.intro(pc.bold(` ${url ? repoLabel(url) : '@onmyway133/pica'} `))
 
   if (first === 'uninstall' || first === 'remove') {
     if (!second) printUsage()
