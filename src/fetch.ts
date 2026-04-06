@@ -1,6 +1,7 @@
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve, isAbsolute } from 'path'
+import { spawnSync } from 'child_process'
 
 /** Expand shorthand `owner/repo` to a full GitHub URL */
 function normalizeUrl(input: string): string {
@@ -28,14 +29,13 @@ export async function fetchRepo(input: string): Promise<string> {
   }
 
   const tmpDir = mkdtempSync(join(tmpdir(), 'agent-'))
-  const result = Bun.spawnSync(
-    ['git', 'clone', '--depth', '1', normalized, tmpDir],
-    { stderr: 'pipe' }
-  )
+  const result = spawnSync('git', ['clone', '--depth', '1', normalized, tmpDir], {
+    stdio: ['ignore', 'ignore', 'pipe']
+  })
 
-  if (result.exitCode !== 0) {
-    const stderr = new TextDecoder().decode(result.stderr)
-    throw new Error(`git clone failed:\n${stderr.trim()}`)
+  if (result.status !== 0) {
+    const stderr = result.stderr?.toString().trim() ?? ''
+    throw new Error(`git clone failed:\n${stderr}`)
   }
 
   return tmpDir

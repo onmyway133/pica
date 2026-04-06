@@ -4,6 +4,7 @@ import {
 } from 'fs'
 import { join, basename, dirname, resolve } from 'path'
 import { homedir } from 'os'
+import { spawnSync } from 'child_process'
 import type { DetectedItem, InstallOptions, InstallResult } from './types.js'
 
 export interface Bases {
@@ -74,7 +75,7 @@ export function installHooks(srcHooksDir: string, base: string): string {
     if (entry.name === 'hooks.json' || entry.name.startsWith('.')) continue
     copyFileSync(join(srcHooksDir, entry.name), join(destHooksDir, entry.name))
     if (entry.name.endsWith('.sh')) {
-      Bun.spawnSync(['chmod', '+x', join(destHooksDir, entry.name)])
+      spawnSync('chmod', ['+x', join(destHooksDir, entry.name)])
     }
   }
 
