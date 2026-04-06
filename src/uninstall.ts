@@ -3,10 +3,13 @@ import {
 } from 'fs'
 import { join, basename, dirname } from 'path'
 import { homedir } from 'os'
+import type { Bases } from './install.js'
 import type { DetectedItem, InstallScope } from './types.js'
 
-const GLOBAL_BASE = join(homedir(), '.claude')
-const LOCAL_BASE = join(process.cwd(), '.claude')
+const DEFAULT_BASES: Bases = {
+  global: join(homedir(), '.claude'),
+  local: join(process.cwd(), '.claude'),
+}
 
 const TYPE_SUBDIR: Record<DetectedItem['type'], string> = {
   agent: 'agents',
@@ -25,61 +28,59 @@ export interface UninstallResult {
 
 export async function uninstallItems(
   items: DetectedItem[],
-  scope: InstallScope
+  scope: InstallScope,
+  bases: Bases = DEFAULT_BASES
 ): Promise<UninstallResult[]> {
-  return Promise.all(items.map(item => uninstallItem(item, scope)))
+  return Promise.all(items.map(item => uninstallItem(item, scope, bases)))
 }
 
-async function uninstallItem(item: DetectedItem, scope: InstallScope): Promise<UninstallResult> {
+async function uninstallItem(
+  item: DetectedItem,
+  scope: InstallScope,
+  bases: Bases
+): Promise<UninstallResult> {
   try {
-    const removed = doUninstall(item, scope)
+    const removed = doUninstall(item, scope, bases)
     return { item, removed, success: true }
   } catch (err) {
     return { item, removed: [], success: false, error: String(err) }
   }
 }
 
-function doUninstall(item: DetectedItem, scope: InstallScope): string[] {
-  if (item.type === 'hook') return uninstallHook(item, scope)
-  if (item.type === 'skill') return uninstallDir(item, scope)
-  return uninstallFile(item, scope)
+function doUninstall(item: DetectedItem, scope: InstallScope, bases: Bases): string[] {
+  if (item.type === 'hook') return uninstallHook(item, scope, bases)
+  if (item.type === 'skill') return uninstallDir(item, scope, bases)
+  return uninstallFile(item, scope, bases)
 }
 
 /** Agents, commands, rules — single .md files */
-function uninstallFile(item: DetectedItem, scope: InstallScope): string[] {
+function uninstallFile(item: DetectedItem, scope: InstallScope, bases: Bases): string[] {
   const name = basename(item.path)
   const subdir = TYPE_SUBDIR[item.type]
   const removed: string[] = []
 
-  // Always try both local and global — symlink mode writes to both
-  const targets =
-    scope === 'local'
-      ? [join(LOCAL_BASE, subdir, name), join(GLOBAL_BASE, subdir, name)]
-      : [join(GLOBAL_BASE, subdir, name)]
+  // local scope tries both — symlink mode writes to both
+  const targets = scope === 'local'
+    ? [join(bases.local, subdir, name), join(bases.global, subdir, name)]
+    : [join(bases.global, subdir, name)]
 
   for (const t of targets) {
-    if (existsSync(t)) {
-      rmSync(t)
-      removed.push(t)
-    }
+    if (existsSync(t)) { rmSync(t); removed.push(t) }
   }
   return removed
 }
 
 /** Skills — directories */
-function uninstallDir(item: DetectedItem, scope: InstallScope): string[] {
-  const name = basename(dirname(item.path))   // parent of SKILL.md
-  const subdir = TYPE_SUBDIR[item.type]
+function uninstallDir(item: DetectedItem, scope: InstallScope, bases: Bases): string[] {
+  const name = basename(dirname(item.path))  // parent of SKILL.md
   const removed: string[] = []
 
-  const targets =
-    scope === 'local'
-      ? [join(LOCAL_BASE, subdir, name), join(GLOBAL_BASE, subdir, name)]
-      : [join(GLOBAL_BASE, subdir, name)]
+  const targets = scope === 'local'
+    ? [join(bases.local, 'skills', name), join(bases.global, 'skills', name)]
+    : [join(bases.global, 'skills', name)]
 
   for (const t of targets) {
     if (existsSync(t)) {
-      // If it's a symlink, remove the link only (don't delete the target dir)
       const stat = lstatSync(t)
       rmSync(t, stat.isSymbolicLink() ? undefined : { recursive: true })
       removed.push(t)
@@ -90,26 +91,21 @@ function uninstallDir(item: DetectedItem, scope: InstallScope): string[] {
 
 /**
  * Hooks — two steps:
- *   1. Delete copied script files from .claude/hooks/
- *   2. Remove matching entries from .claude/settings.json
+ *   1. Delete script files from {base}/hooks/
+ *   2. Remove matching entries from {base}/settings.json
  */
-function uninstallHook(item: DetectedItem, scope: InstallScope): string[] {
-  const base = scope === 'global' ? GLOBAL_BASE : LOCAL_BASE
+export function uninstallHook(item: DetectedItem, scope: InstallScope, bases: Bases): string[] {
+  const base = scope === 'global' ? bases.global : bases.local
   const srcHooksDir = item.path
   const manifestPath = join(srcHooksDir, 'hooks.json')
   const removed: string[] = []
 
-  // Remove script files
   for (const f of readdirSync(srcHooksDir)) {
     if (f === 'hooks.json' || f.startsWith('.')) continue
     const dest = join(base, 'hooks', f)
-    if (existsSync(dest)) {
-      rmSync(dest)
-      removed.push(dest)
-    }
+    if (existsSync(dest)) { rmSync(dest); removed.push(dest) }
   }
 
-  // Remove hook entries from settings.json
   const settingsPath = join(base, 'settings.json')
   if (!existsSync(settingsPath) || !existsSync(manifestPath)) return removed
 
@@ -122,10 +118,9 @@ function uninstallHook(item: DetectedItem, scope: InstallScope): string[] {
     for (const [event, handlers] of Object.entries(hooksConfig)) {
       if (!settings.hooks[event]) continue
       const manifestCmds = extractCommands(handlers, base)
-      settings.hooks[event] = (settings.hooks[event] as unknown[]).filter(h => {
-        const cmds = extractCommands([h], base)
-        return !cmds.some(c => manifestCmds.includes(c))
-      })
+      settings.hooks[event] = (settings.hooks[event] as unknown[]).filter(h =>
+        !extractCommands([h], base).some(c => manifestCmds.includes(c))
+      )
       if ((settings.hooks[event] as unknown[]).length === 0) delete settings.hooks[event]
     }
 
@@ -139,21 +134,18 @@ function uninstallHook(item: DetectedItem, scope: InstallScope): string[] {
   return removed
 }
 
-/** Recursively pull all "command" strings out of a hook config, substituting CLAUDE_PLUGIN_ROOT */
 function extractCommands(handlers: unknown[], base: string): string[] {
-  const json = JSON.stringify(handlers).replaceAll('${CLAUDE_PLUGIN_ROOT}', base)
-  const parsed = JSON.parse(json) as unknown[]
+  const parsed = JSON.parse(
+    JSON.stringify(handlers).replaceAll('${CLAUDE_PLUGIN_ROOT}', base)
+  ) as unknown[]
   const cmds: string[] = []
 
   function walk(obj: unknown): void {
     if (!obj || typeof obj !== 'object') return
-    if ('command' in (obj as Record<string, unknown>)) {
-      const cmd = (obj as Record<string, unknown>).command
-      if (typeof cmd === 'string') cmds.push(cmd)
-    }
-    for (const v of Object.values(obj as Record<string, unknown>)) {
-      if (Array.isArray(v)) v.forEach(walk)
-      else walk(v)
+    const rec = obj as Record<string, unknown>
+    if (typeof rec.command === 'string') cmds.push(rec.command)
+    for (const v of Object.values(rec)) {
+      Array.isArray(v) ? v.forEach(walk) : walk(v)
     }
   }
 
@@ -161,33 +153,21 @@ function extractCommands(handlers: unknown[], base: string): string[] {
   return cmds
 }
 
-/** Returns which detected items are actually installed (for showing a relevant list) */
-export function filterInstalled(items: DetectedItem[]): DetectedItem[] {
+/** Returns items that appear to be installed (checked against both local and global) */
+export function filterInstalled(items: DetectedItem[], bases: Bases = DEFAULT_BASES): DetectedItem[] {
   return items.filter(item => {
     if (item.type === 'skill') {
       const name = basename(dirname(item.path))
-      return (
-        existsSync(join(LOCAL_BASE, 'skills', name)) ||
-        existsSync(join(GLOBAL_BASE, 'skills', name))
-      )
+      return existsSync(join(bases.local, 'skills', name)) ||
+             existsSync(join(bases.global, 'skills', name))
     }
     if (item.type === 'hook') {
-      const manifest = join(item.path, 'hooks.json')
-      if (!existsSync(manifest)) return false
-      try {
-        const config = JSON.parse(readFileSync(manifest, 'utf8'))
-        const event = Object.keys(config.hooks ?? {})[0]
-        return (
-          existsSync(join(LOCAL_BASE, 'settings.json')) ||
-          existsSync(join(GLOBAL_BASE, 'settings.json'))
-        )
-      } catch { return false }
+      return existsSync(join(bases.local, 'settings.json')) ||
+             existsSync(join(bases.global, 'settings.json'))
     }
     const name = basename(item.path)
     const subdir = TYPE_SUBDIR[item.type]
-    return (
-      existsSync(join(LOCAL_BASE, subdir, name)) ||
-      existsSync(join(GLOBAL_BASE, subdir, name))
-    )
+    return existsSync(join(bases.local, subdir, name)) ||
+           existsSync(join(bases.global, subdir, name))
   })
 }

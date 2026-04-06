@@ -1,5 +1,9 @@
 # pica
 
+<p align="center">
+  <img src="images/pica.png" width="200" alt="pica" />
+</p>
+
 CLI to detect and install Claude Code agents, skills, commands, hooks, and rules from any GitHub repo or local path.
 
 Named after *Pica pica* — the magpie, known for collecting shiny things.

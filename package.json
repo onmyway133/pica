@@ -6,9 +6,15 @@
   "bin": {
     "pica": "./bin/pica.mjs"
   },
+  "files": [
+    "bin",
+    "dist"
+  ],
   "scripts": {
     "dev": "bun src/cli.ts",
-    "build": "bun build src/cli.ts --outfile dist/cli.mjs --target node"
+    "build": "bun build src/cli.ts --outfile dist/cli.mjs --target node",
+    "prepare": "bun build src/cli.ts --outfile dist/cli.mjs --target node",
+    "test": "bun test"
   },
   "dependencies": {
     "@clack/prompts": "^0.9.0",
